@@ -156,6 +156,7 @@ struct mqtt3_config {
 	char *topic_notice_online;
 	char *topic_notice_offline;	
 	char *topic_dump_conn_info;
+	char *topic_query_conn_status;
 	char *cmd_dump_conn;
 };
 

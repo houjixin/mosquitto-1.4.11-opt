@@ -171,7 +171,8 @@ static void _config_init_reload(struct mqtt3_config *config)
 	if(config->topic_notice_online) _mosquitto_free(config->topic_notice_online);
 	if(config->topic_notice_offline) _mosquitto_free(config->topic_notice_offline);
 	if(config->topic_dump_conn_info) _mosquitto_free(config->topic_dump_conn_info);
-	if(config->cmd_dump_conn) _mosquitto_free(config->cmd_dump_conn);	
+	if(config->cmd_dump_conn) _mosquitto_free(config->cmd_dump_conn);
+	if(config->topic_query_conn_status) _mosquitto_free(config->topic_query_conn_status);
 }
 
 void mqtt3_config_init(struct mqtt3_config *config)
@@ -219,6 +220,7 @@ void mqtt3_config_init(struct mqtt3_config *config)
 	config->topic_notice_online = NULL;
 	config->topic_dump_conn_info = NULL;
 	config->cmd_dump_conn = NULL;
+	config->topic_query_conn_status = NULL;
 }
 
 void mqtt3_config_cleanup(struct mqtt3_config *config)
@@ -322,7 +324,8 @@ void mqtt3_config_cleanup(struct mqtt3_config *config)
 	if(config->topic_notice_online) _mosquitto_free(config->topic_notice_online);
 	if(config->topic_notice_offline) _mosquitto_free(config->topic_notice_offline);
 	if(config->topic_dump_conn_info) _mosquitto_free(config->topic_dump_conn_info);
-	if(config->cmd_dump_conn) _mosquitto_free(config->cmd_dump_conn);	
+	if(config->cmd_dump_conn) _mosquitto_free(config->cmd_dump_conn);
+	if(config->topic_query_conn_status) _mosquitto_free(config->topic_query_conn_status);	
 }
 
 static void print_usage(void)
@@ -1774,6 +1777,8 @@ int _config_read_file_core(struct mqtt3_config *config, bool reload, const char 
 					if(_conf_parse_string(&token, "topic_dump_connection", &config->topic_dump_conn_info, saveptr)) return MOSQ_ERR_INVAL;
 				}else if(!strcmp(token, "cmd_dump_connection")){
 					if(_conf_parse_string(&token, "cmd_dump_connection", &config->cmd_dump_conn, saveptr)) return MOSQ_ERR_INVAL;
+				}else if(!strcmp(token, "topic_query_conn_status")){
+					if(_conf_parse_string(&token, "topic_query_conn_status", &config->topic_query_conn_status, saveptr)) return MOSQ_ERR_INVAL;
 				}else{
 					_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "Error: Unknown configuration variable \"%s\".", token);
 					return MOSQ_ERR_INVAL;
