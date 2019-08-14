@@ -1,86 +1,63 @@
-mosquitto-1.4.11-opt是由jason.hou（email:houjixin@163.com）完成代码优化，并添加了部分新功能：
-（1）优化mosquitto性能，采用了epoll代替poll、hash表加速订阅树遍历速度等措施，使得mosquitto的性能有了质的提升；
-（2）增加了上下线通知的功能，即无需客户端做任何动作，优化后的mosquitto会在客户端连接建立和断开时向配置文件中指定的topic发送通知（通知会写明是哪个连接断开或者建立了）；
-（3）增加了动态修改指定连接的keepalive的功能，为实现动态心跳打下了基础；
-（4）增加了导出当前mosquitto中所有在线客户端的连接id的功能；
+# =================================================================
+#  by jason.hou 2017.10.28
+#  email：houjixin@163.com
+#  qq:278200053
+# =================================================================
+在1.4.11的源码上做了3项性能优化，并增加了如下功能：
+1.动态修改keepalive时间；
+2.接收连接上下线通知；
+3、导出在线连接的id和ip到目录：/tmp/online_users
+4、直接查询指定连接ID的在线状态
+【注意】如果不启用这些功能向，只需用#注释掉相应配置参数即可
 
+新增功能1：
+【功能说明】向一个topic发送一个时间值，mosquitto将把当前连接的keepalive时间修改为pub过来的时间值；不配置该项意味着不启用该功能；
+【使用说明】通过参数"topic_change_keepalive"配置一个字符串作为topic，任何一个客户端连接只要向这个topic发送一个大于的时间值，那么该客户端连接
+的keepalive时间就被修改为了所发送的时间值；
+【注意】只能修改自己的（pub消息的那个客户端连接）keepalive时间，无法修改其他连接的时间；
+【配置参数】
+topic_change_keepalive client/change/keepalive
 
-Eclipse Mosquitto
-=================
+新增功能2：
+【功能说明】向指定topic发送上下线通知的消息
+【使用说明】：
+打开下面两个配置项“topic_notice_online”（对应上线消息）和“topic_notice_offline”（对应下线消息），
+并为他们分别设置一个参数，这个设置的参数将被作为一个topic，也可以将这两个topic参数设置成一样，这样，上下线消息都会发送到同一个topic上；
+在有连接建立或断开时mosquitto将向这两个topic发送消息，
+【消息格式说明】mosquitto向下面这两个配置topic发送的上下线消息为JSON字符串，共包含三个字段：
+clientid：当前通知所涉及的连接ID；
+type:连接的状态：1：连接建立；0：连接断开；
+time:当前系统时间，1970年1月1日到现在的时间；
+例如：
+收到的上下线消息
+为如下的json格式：
+{
+	"clientid": "350012",
+	"type": "1",
+	"time": 1565747719000
+}
+【配置参数】
+topic_notice_online client/notice/status/onoffline
+topic_notice_offline client/notice/status/onoffline
 
-Mosquitto is an open source implementation of a server for version 3.1 and
-3.1.1 of the MQTT protocol. It also includes a C and C++ client library, and
-the `mosquitto_pub` and `mosquitto_sub` utilities for publishing and
-subscribing.
+新增功能3：
+【功能说明】导出在线连接的id和ip到目录：/tmp/online_users
+【使用说明】开启配置参数"topic_dump_connection"和"cmd_dump_connection"，为这两个参数各设置一个字符串，其中：
+参数topic_dump_connection指定了一个topic，参数cmd_dump_connection指定了一个“命令”，只有向这里配置的topic发送配置的命令
+mosquitto才会执行此功能，不配置topic_dump_connection就意味着不启动该功能，一旦启用该功能就必须要同时提供对参数cmd_dump_connection的配置。
+【注意】
+[1] 这里定义的topic 不能 以$SYS/开头，否则客户端就无法向这个topic发送命令了;
+[2] 建议这个topic要比较特殊，尽量短，这样效率更高，最好第一个字符跟其他的所有topic都不一样;
+[3] 为了安全起见，参数cmd_dump_connection不能设置为空，如果命令匹配，mosquitto才会执行此功能；
+[4] 为了尽量降低对mosquitto的影响，该命令一分钟只能执行一次；
+[5] 下面这两个参数要么全配，要么全部不配
+【配置参数】
+topic_dump_connection client/connection/dump
+cmd_dump_connection hello-jason
 
-## Links
-
-See the following links for more information on MQTT:
-
-- Community page: <http://mqtt.org/>
-- MQTT v3.1.1 standard: <http://docs.oasis-open.org/mqtt/mqtt/v3.1.1/mqtt-v3.1.1.html>
-
-Mosquitto project information is available at the following locations:
-
-- Main homepage: <http://mosquitto.org/>
-- Find existing bugs or submit a new bug: <https://github.com/eclipse/mosquitto/issues>
-- Source code repository: <https://github.com/eclipse/mosquitto>
-
-There is also a public test server available at <http://test.mosquitto.org/>
-
-## Installing
-
-See <http://mosquitto.org/download/> for details on installing binaries for
-various platforms.
-
-## Quick start
-
-If you have installed a binary package the broker should have been started
-automatically. If not, it can be started with a basic configuration:
-
-    mosquitto
-
-Then use `mosquitto_sub` to subscribe to a topic:
-
-    mosquitto_sub -t 'test/topic' -v
-
-And to publish a message:
-
-    mosquitto_pub -t 'test/topic' -m 'hello world'
-
-## Documentation
-
-Documentation for the broker, clients and client library API can be found in
-the man pages, which are available online at <http://mosquitto.org/man/>. There
-are also pages with an introduction to the features of MQTT, the
-`mosquitto_passwd` utility for dealing with username/passwords, and a
-description of the configuration file options available for the broker.
-
-Detailed client library API documentation can be found at <http://mosquitto.org/api/>
-
-## Building from source
-
-To build from source the recommended route for end users is to download the
-archive from <http://mosquitto.org/download/>.
-
-On Windows and Mac, use `cmake` to build. On other platforms, just run `make`
-to build. For Windows, see also `readme-windows.md`.
-
-If you are building from the git repository then the documentation will not
-already be built. Use `make binary` to skip building the man pages, or install
-`docbook-xsl` on Debian/Ubuntu systems.
-
-### Build Dependencies
-
-* c-ares (libc-ares-dev on Debian based systems) - disable with `make WITH_DNS_SRV=no`
-* libuuid (uuid-dev) - disable with `make WITH_UUID=no`
-* libwebsockets (libwebsockets-dev) - enable with `make WITH_LIBWEBSOCKETS=yes`
-* openssl (libssl-dev on Debian based systems) - disable with `make WITH_TLS=no`
-
-## Credits
-
-Mosquitto was written by Roger Light <roger@atchoo.org>
-
-Master: [![Travis Build Status (master)](https://travis-ci.org/eclipse/mosquitto.svg?branch=master)](https://travis-ci.org/eclipse/mosquitto)
-Develop: [![Travis Build Status (develop)](https://travis-ci.org/eclipse/mosquitto.svg?branch=develop)](https://travis-ci.org/eclipse/mosquitto)
-Fixes: [![Travis Build Status (fixes)](https://travis-ci.org/eclipse/mosquitto.svg?branch=fixes)](https://travis-ci.org/eclipse/mosquitto)
+新增功能4：
+【功能说明】查询指定连接ID是否在线，返回JSON格式字符串，JSON格式与新增功能2一致：1：在线；0：不在线
+【使用方式】开启下面配置，该配置将指定一个topic，任何一个客户端只要向这个topic发布一个连接ID（即pub过来的消息内容就是要查询的连接ID），mosquitto
+就会给这个当前pub消息的客户端回复一条消息，查询的客户端无需订阅任何topic，只要向这里配置的topic发布连接ID，就能收到mosquitto发布过来的查询结果。
+【配置参数】
+topic_query_conn_status client/query/connection
