@@ -45,6 +45,7 @@ topic_notice_offline client/notice/status/onoffline
 【使用说明】开启配置参数"topic_dump_connection"和"cmd_dump_connection"，为这两个参数各设置一个字符串，其中：
 参数topic_dump_connection指定了一个topic，参数cmd_dump_connection指定了一个“命令”，只有向这里配置的topic发送配置的命令
 mosquitto才会执行此功能，不配置topic_dump_connection就意味着不启动该功能，一旦启用该功能就必须要同时提供对参数cmd_dump_connection的配置。
+导出文件的位置为：/tmp/online_users/online_users_{端口号}_{时间}.txt
 【注意】
 [1] 这里定义的topic 不能 以$SYS/开头，否则客户端就无法向这个topic发送命令了;
 [2] 建议这个topic要比较特殊，尽量短，这样效率更高，最好第一个字符跟其他的所有topic都不一样;
