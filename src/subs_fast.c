@@ -316,6 +316,7 @@ struct _mosquitto_subhier* add_child_subhier_node(struct mosquitto_db *db, struc
 		_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "[add_child_subhier_node] Error: Out of memory. for topic_key!");
 		return NULL;
 	}
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[add_child_subhier_node] insert current subhier node into the first node of subhier's or db-subs's child list!topic_key(%s)", topic_key);
 //insert current subhier node into the first node of subhier's or db-subs's child list
 	cur_subhier_node->prev = NULL;
 	if(IS_VALID_POINTER(parent)){
@@ -383,14 +384,17 @@ static int  _sub_messages_queue_fast(struct mosquitto_db *db, struct _mosquitto_
 	bool sr;
 	int res;
 	if(!IS_VALID_POINTER(topic_key)){
-		_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "[_sub_messages_queue_fast] parameter error! topic_key(%p)\n", topic_key);
+		_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "[_sub_messages_queue_fast] parameter error! topic_key(%s)\n", topic_key);
 		return MOSQ_ERR_INVAL;
 	}
+	_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "[_sub_messages_queue_fast]  source_id(%s),topic_key(%s), topic(%s)\n", source_id, topic_key, topic);
 
 	sr = set_retain;
 	
 	//1. check "#" for current subhier layer! must do this operation at first;
 	_copy_topic_section(db, "#", topic_key, topic_key_free_pos);
+	
+    _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] will search topic_key(%s)£¬topic_key pos:%d", topic_key, *topic_key_free_pos);
 	cur_subhier_node = NULL; 
 	HASH_FIND_STR(g_subhier_dic, topic_key, cur_subhier_node);
 	if(IS_VALID_POINTER(cur_subhier_node) && !IS_VALID_POINTER(cur_subhier_node->children)){//check sub tree for "#"
@@ -398,6 +402,7 @@ static int  _sub_messages_queue_fast(struct mosquitto_db *db, struct _mosquitto_
 		_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] Getting subhier with topic_key(%s), subhier addr:%p, subhier addr is null means nobody in this sub node! topic_key pos:%d", topic_key, cur_subhier_node, *topic_key_free_pos);
 		res = _subs_process(db, cur_subhier_node, source_id, topic, qos, retain, stored, sr);
 	}
+	 _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] search topic_key(%s) over!£¬topic_key pos:%d ", topic_key, *topic_key_free_pos);
 	_remove_topic_section(db, "#", topic_key, topic_key_free_pos);
 
 	//2. check if we get to the end of topic list?
@@ -409,6 +414,7 @@ static int  _sub_messages_queue_fast(struct mosquitto_db *db, struct _mosquitto_
 
 	//3. check "+" for current topic section!
 	_copy_topic_section(db, "+", topic_key, topic_key_free_pos);
+	 _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] will search topic_key(%s), topic_key pos:%d", topic_key, *topic_key_free_pos);
 	cur_subhier_node = NULL; 
 	HASH_FIND_STR(g_subhier_dic, topic_key, cur_subhier_node);
 	if(IS_VALID_POINTER(cur_subhier_node)){//check sub tree for "+"
@@ -419,11 +425,14 @@ static int  _sub_messages_queue_fast(struct mosquitto_db *db, struct _mosquitto_
 			_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] check sub tree for \"+\"");
 		}
 	}
+	 _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] search topic_key(%s)over! topic_key pos:%d", topic_key, *topic_key_free_pos);
 	_remove_topic_section(db, "+", topic_key, topic_key_free_pos);
 
 	//4. check sub tree for current topic section
 	cur_subhier_node = NULL;
 	_copy_topic_section(db, cur_token_section->topic, topic_key, topic_key_free_pos);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] will search sub key topic_key(%s), cur_token_section->topic(%s),topic_key pos:%d", topic_key, cur_token_section->topic, *topic_key_free_pos);
+	
 	HASH_FIND_STR(g_subhier_dic, topic_key, cur_subhier_node);
 	if(IS_VALID_POINTER(cur_subhier_node)){
 		res = _sub_messages_queue_fast(db, cur_subhier_node, cur_token_section->next, source_id, qos, retain, stored, topic, topic_key, topic_key_free_pos, sr);
@@ -431,6 +440,7 @@ static int  _sub_messages_queue_fast(struct mosquitto_db *db, struct _mosquitto_
 			_mosquitto_log_printf(NULL, MOSQ_LOG_WARNING, "[_sub_messages_queue_fast] check sub tree for current topic section:(%s) fail!", cur_token_section->topic);
 		}
 	}
+	 _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_messages_queue_fast] search topic_key(%s)over! topic_key pos:%d", topic_key, *topic_key_free_pos);
 	_remove_topic_section(db, cur_token_section->topic, topic_key, topic_key_free_pos);
 	return MOSQ_ERR_SUCCESS;
 }
@@ -483,7 +493,7 @@ int mqtt3_sub_add_fast(struct mosquitto_db *db, struct mosquitto *context, const
 	}
 	
 	rc = _sub_add_fast(db, context, qos, root, tokens, topic_key, &topic_key_free_pos);
-	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_sub_add_fast] Adding sub context over! res:(%d)", rc);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_sub_add_fast] Adding sub context over! topic_key:(%s)", topic_key);
 	
 	/* We aren't worried about -1 (already subscribed) return codes. */
 	if(rc == -1) rc = MOSQ_ERR_SUCCESS;
@@ -504,10 +514,11 @@ static int _sub_add_fast(struct mosquitto_db *db, struct mosquitto *context, int
 		_mosquitto_log_printf(NULL, MOSQ_LOG_ERR, "[_sub_add_fast] parameter error! parent(%p), tokens(%p), topic_key(%p)", parent, tokens, topic_key);
 		return MOSQ_ERR_INVAL;
 	}
-	
+
 	while(true){
 		_copy_topic_section(db, tokens->topic, topic_key, topic_key_free_pos);
 		cur_subhier_node = NULL; 
+		_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_sub_add_fast] current topic_key:(%s),tokens->topic(%s)", topic_key, tokens->topic);
 		HASH_FIND_STR(g_subhier_dic, topic_key, cur_subhier_node);
 		if(!IS_VALID_POINTER(cur_subhier_node)){
 			//We cann't find subhier node with current topic section in topic tree! and we must add it!
@@ -558,19 +569,19 @@ static void _remove_topic_section(struct mosquitto_db *db, char* topic_section, 
 	if(cur_pos <= 0)
 		return;
 	
-	//_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_remove_topic_section] will reset topic_key(%s), topic_section(%s), topic_key_free_pos(%d)", topic_key, topic_section, *topic_key_free_pos);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_remove_topic_section] will reset topic_key(%s), topic_section(%s), topic_key_free_pos(%d)", topic_key, topic_section, *topic_key_free_pos);
 	remove_len = strlen(topic_section);
 	if(remove_len <= cur_pos){
 		cur_pos = cur_pos - remove_len;
 		memset(topic_key + cur_pos, '\0', remove_len);
 		
-		if((cur_pos > 0) && *(topic_key + cur_pos - 1) == '/' ){
-			*(topic_key + cur_pos - 1) = '\0';
-			cur_pos = cur_pos -1;
-		}
+		//if((cur_pos > 0) && *(topic_key + cur_pos - 1) == '/' ){
+			//*(topic_key + cur_pos - 1) = '\0';
+			//cur_pos = cur_pos -1;
+		//}
 	}
 	(*topic_key_free_pos) = cur_pos;
-	//_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_remove_topic_section] after reset topic_key(%s), topic_section(%s), topic_key_free_pos(%d)", topic_key, topic_section, *topic_key_free_pos);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[_remove_topic_section] after reset topic_key(%s), topic_section(%s), topic_key_free_pos(%d)", topic_key, topic_section, *topic_key_free_pos);
 }
 
 
@@ -630,7 +641,7 @@ int mqtt3_db_messages_queue_fast(struct mosquitto_db *db, const char *source_id,
 
 	assert(db);
 	assert(topic);
-//	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_db_messages_queue_fast] Topic(%s), payload:%s", topic, (*stored)->payload);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_db_messages_queue_fast] Topic(%s), payload:%s", topic, (*stored)->payload);
 
 	
 	if(_sub_topic_tokenise(topic, &tokens)) return 1;
@@ -656,7 +667,11 @@ int mqtt3_db_messages_queue_fast(struct mosquitto_db *db, const char *source_id,
 	reserved_pos = topic_key_free_pos;
 	cur_subhier_node = NULL; 
 	HASH_FIND_STR(g_subhier_dic, topic_key, cur_subhier_node);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_db_messages_queue_fast] will search current topic_key(%s), tokens->topic(%s)", topic_key, tokens->topic);
 	if(IS_VALID_POINTER(cur_subhier_node)){
+	
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[mqtt3_db_messages_queue_fast] Find current topic_key(%s)", topic_key);
+	
 		if(retain){
 			rc = _sub_add_fast(db, NULL, qos, cur_subhier_node, tokens->next, topic_key, &topic_key_free_pos);
 			if(MOSQ_ERR_SUCCESS != rc){		

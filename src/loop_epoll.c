@@ -48,7 +48,6 @@ static int epoll_add_read(struct mosquitto_db* db, int new_socket);
 static int loop_handle_results_epoll(struct mosquitto_db *db, int events_num, int *listensock, int listensock_count);
 static void check_persistent_client(struct mosquitto_db *db, time_t now_time, time_t expiration_check_time);
 static void send_msg(struct mosquitto_db *db);
-void send_notice_client_status(struct mosquitto_db *db, char* client_id, int type, char* reason);
 
 
 #ifdef WITH_BROKER
@@ -361,7 +360,6 @@ int loop_handle_results_epoll(struct mosquitto_db *db, int events_num, int *list
 								break;
 							}
 							//error happened!						
-							send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "read packet fail!");
 							do_disconnect(db, context);							
 						}
 					}while(MOSQ_ERR_SUCCESS == res);
@@ -388,7 +386,6 @@ int loop_handle_results_epoll(struct mosquitto_db *db, int events_num, int *list
 							context->state = mosq_cs_new;
 						}
 					}else{				
-						send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "get socket option fail!");
 						do_disconnect(db, context);
 						continue;
 					}
@@ -405,7 +402,6 @@ int loop_handle_results_epoll(struct mosquitto_db *db, int events_num, int *list
 							break;
 						}
 						//error happened!						
-						send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "write packet fail!");
 						do_disconnect(db, context);
 						continue;
 					}
@@ -422,7 +418,6 @@ int loop_handle_results_epoll(struct mosquitto_db *db, int events_num, int *list
 			//Handle error and hup event
 		if(events & (EPOLLERR | EPOLLHUP)){
 			_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[loop_handle_results_epoll] EPOLLERR | EPOLLHUP from current socket! client id:%s\n", context->id);
-			send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "Read EPOLLERR | EPOLLHUP from current socket");
 			do_disconnect(db, context);
 			continue;
 		}
@@ -487,7 +482,6 @@ static void check_keep_alive()
 			|| now - context->last_msg_in < (time_t)(context->keepalive)*3/2){
 			continue;
 		}else{
-			send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "over limitation of keepalive * 1.5");					
 			do_disconnect(db, context);		
 		}
 	}
@@ -550,7 +544,6 @@ static void handle_bridge(struct mosquitto_db *db)
 						epoll_add_read_write(db, context->sock);
 					}
 				}else{
-					send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "write message fail!");
 					do_disconnect(db, context);
 				}*/
 		}else{
@@ -563,7 +556,6 @@ static void handle_bridge(struct mosquitto_db *db)
 				_mosquitto_log_printf(NULL, MOSQ_LOG_NOTICE, "Client %s has exceeded timeout, disconnecting.", id);
 			}
 			/* Client has exceeded keepalive*1.5 */
-			send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "Client has exceeded timeout, disconnecting");			
 			do_disconnect(db, context);
 		}
 	}
@@ -680,7 +672,6 @@ static void check_persistent_client(struct mosquitto_db *db, time_t now_time, ti
 #endif
 					context->clean_session = true;
 					context->state = mosq_cs_expiring;					
-					send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "Expiring persistent client due to timeout");
 					do_disconnect(db, context);
 				}
 			}
@@ -697,27 +688,25 @@ static void send_msg(struct mosquitto_db *db)
 	context_count = HASH_CNT(hh_msg_sock, db->contexts_with_msg_by_sock);
 	if(context_count <= 0)
 		return;
-	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_msg] context_count:%d", context_count);
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_msg] context_count:%d; start", context_count);
 
 	HASH_ITER(hh_msg_sock, db->contexts_with_msg_by_sock, context, ctxt_tmp){
+	
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_msg] context_count:%d, id:%s", context_count, context->id);
 		if(mqtt3_db_message_write(db, context) != MOSQ_ERR_SUCCESS){			
-			send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "write message fail!");
 			do_disconnect(db, context);
+		_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_msg] send error! context_count:%d, id:%s", context_count, context->id);
 		}else if(!IS_VALID_POINTER(context->msgs)){
 			HASH_DELETE(hh_msg_sock, db->contexts_with_msg_by_sock, context);
 		}
+	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_msg] context_count:%d, end", context_count);
 	}
 }
 
 /*
-* type == ONTICE_TYPE_ONLINE or ONTICE_TYPE_OFFLINE
-*不能再do_disconnect函数里面调用该函数，以踢掉某个在线客户端为例
-*假如ID为A的客户端已经在线了，这时如果A再次上线，那么在connect
-*的时候就会发布一个 A上线的通知,但是在检测ID A时就会把原来的给
-*踢下去，这时就会发一个A下线的通知，对于接收通知的来说最终ID
-*为A的连接断开了，但是实际在mosquitto里A还在线上；
+* type == NOTICE_TYPE_ONLINE or NOTICE_TYPE_OFFLINE
 */
-void send_notice_client_status(struct mosquitto_db *db, char* client_id, int type, char* reason)
+void send_notice_client_status(struct mosquitto_db *db, char* client_id, int type)
 {
 	if(!IS_VALID_POINTER(client_id)) return;
 	
@@ -727,18 +716,14 @@ void send_notice_client_status(struct mosquitto_db *db, char* client_id, int typ
 	gettimeofday(&cur_time,NULL);
 	struct mosquitto_msg_store *stored;
 	
-	timestamp = (cur_time.tv_sec*1000000+cur_time.tv_usec) / 1000;
-	if(IS_VALID_POINTER(reason)){
-		snprintf(buf, 1024, "{\"clientid\":\"%s\",\"type\":\"%d\",\"time\":%ld, \"reason\":\"%s\"}", client_id, type, timestamp, reason);
-	}else{
-		snprintf(buf, 1024, "{\"clientid\":\"%s\",\"type\":\"%d\",\"time\":%ld}", client_id, type, timestamp);
-	}
-	
+    timestamp = (cur_time.tv_sec*1000000+cur_time.tv_usec) / 1000;
+    snprintf(buf, 1024, "{\"clientid\":\"%s\",\"type\":\"%d\",\"time\":%ld}", client_id, type, timestamp);   
 	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[send_notice_client_status] msg:%s", buf);
-	if(ONTICE_TYPE_ONLINE == type && IS_VALID_POINTER(db->config->topic_notice_online)){
+
+	if(NOTICE_TYPE_ONLINE == type && IS_VALID_POINTER(db->config->topic_notice_online)){
 		if(mqtt3_db_message_store(db, db->pid, 0, db->config->topic_notice_online, 0, strlen(buf), buf, 0, &stored, 0)) return ;
 		mqtt3_db_messages_queue(db, db->pid, db->config->topic_notice_online, 0, 0, &stored);
-	}else if(ONTICE_TYPE_OFFLINE == type && IS_VALID_POINTER(db->config->topic_notice_offline)){
+	}else if(NOTICE_TYPE_OFFLINE == type && IS_VALID_POINTER(db->config->topic_notice_offline)){
 		if(mqtt3_db_message_store(db, db->pid, 0, db->config->topic_notice_offline, 0, strlen(buf), buf, 0, &stored, 0)) return ;
 		mqtt3_db_messages_queue(db, db->pid, db->config->topic_notice_offline, 0, 0, &stored);
 	}

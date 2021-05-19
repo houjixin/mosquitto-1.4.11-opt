@@ -227,7 +227,6 @@ static int callback_mqtt(struct libwebsocket_context *context,
 			mosq = u->mosq;
 			if(mosq){
 				mosq->wsi = NULL;				
-				send_notice_client_status(db, mosq->id, ONTICE_TYPE_OFFLINE, "web socket:LWS_CALLBACK_CLOSED");
 				do_disconnect(db, mosq);
 			}
 			break;
@@ -378,7 +377,6 @@ static int callback_mqtt(struct libwebsocket_context *context,
 				mosq->last_msg_in = mosquitto_time();
 
 				if(rc){					
-					send_notice_client_status(db, mosq->id, ONTICE_TYPE_OFFLINE, "websocket: callback_mqtt");
 					do_disconnect(db, mosq);
 					return -1;
 				}

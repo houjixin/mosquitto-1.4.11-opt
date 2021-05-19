@@ -583,7 +583,7 @@ int mqtt3_handle_connect(struct mosquitto_db *db, struct mosquitto *context)
 	}
 #endif
 	context->state = mosq_cs_connected;
-	send_notice_client_status(db, context->id, ONTICE_TYPE_ONLINE, NULL);
+	send_notice_client_status(db, context->id, NOTICE_TYPE_ONLINE);
 	return _mosquitto_send_connack(context, connect_ack, CONNACK_ACCEPTED);
 
 handle_connect_error:
@@ -611,13 +611,11 @@ int mqtt3_handle_disconnect(struct mosquitto_db *db, struct mosquitto *context)
 	_mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "Received DISCONNECT from %s", context->id);
 	if(context->protocol == mosq_p_mqtt311){
 		if((context->in_packet.command&0x0F) != 0x00){
-			send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "packet error!");			
 			do_disconnect(db, context);
 			return MOSQ_ERR_PROTOCOL;
 		}
 	}
 	context->state = mosq_cs_disconnecting;	
-	send_notice_client_status(db, context->id, ONTICE_TYPE_OFFLINE, "Received DISCONNECT");
 	do_disconnect(db, context);
 	return MOSQ_ERR_SUCCESS;
 }

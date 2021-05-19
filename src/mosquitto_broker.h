@@ -387,7 +387,7 @@ struct mosquitto_db *_mosquitto_get_db(void);
 /* ============================================================
  * 新增业务处理函数------by jason.hou
  * ============================================================ */
-void send_notice_client_status(struct mosquitto_db *db, char* client_id, int type, char* reason);
+void send_notice_client_status(struct mosquitto_db *db, char* client_id, int type);
 
 
 /* ============================================================

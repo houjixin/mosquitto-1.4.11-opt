@@ -302,8 +302,8 @@ int main(int argc, char *argv[])
 		rc = 1;
 		return rc;
 	}
-	_mosquitto_log_printf(NULL, MOSQ_LOG_INFO, "mosquitto version %s (build date %s) starting", VERSION, TIMESTAMP);
-	_mosquitto_log_printf(NULL, MOSQ_LOG_INFO, "This software is optimized by jason.hou from mosquitto 1.4.11, if you have any questions, please contact me, my email :houjixin@163.com");
+	_mosquitto_log_printf(NULL, MOSQ_LOG_INFO, "mosquitto for NATIOT,version %s - opt(build date %s) starting", VERSION, TIMESTAMP);
+	//_mosquitto_log_printf(NULL, MOSQ_LOG_INFO, "This software is optimized by jason.hou from mosquitto 1.4.11, if you have any questions, please contact me, my email :houjixin@163.com");
 	if(config.config_file){
 		_mosquitto_log_printf(NULL, MOSQ_LOG_INFO, "Config loaded from %s.", config.config_file);
 	}else{

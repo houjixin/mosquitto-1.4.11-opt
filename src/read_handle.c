@@ -218,12 +218,12 @@ int mqtt3_handle_publish(struct mosquitto_db *db, struct mosquitto *context)
 
     if(db->config->topic_query_conn_status && !strcmp(topic, db->config->topic_query_conn_status)){
          struct mosquitto *found_context;
-         int conn_status = ONTICE_TYPE_OFFLINE;//1:connectedï¼?ï¼šdisconnected;
+         int conn_status = NOTICE_TYPE_OFFLINE;//1¡¢
          HASH_FIND(hh_id, db->contexts_by_id, payload, strlen(payload), found_context);
             
          if(found_context && (found_context->sock != INVALID_SOCKET)){
-             conn_status = ONTICE_TYPE_ONLINE;
-             _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[query_connection_status] find id:%s, socket:%d, conn_status: %d", payload, found_context->sock, conn_status);
+             conn_status = NOTICE_TYPE_ONLINE;
+             _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[query_connection_status] find id:%s, socket:%d, conn_status: %d", (char*)payload, found_context->sock, conn_status);
          }
          struct mosquitto_msg_store *conn_status_msg_stored;
          char buf[1024] = {0};
@@ -232,7 +232,7 @@ int mqtt3_handle_publish(struct mosquitto_db *db, struct mosquitto *context)
          gettimeofday(&cur_time,NULL);
         
          timestamp = (cur_time.tv_sec*1000000+cur_time.tv_usec) / 1000;
-         snprintf(buf, 1024, "{\"clientid\":\"%s\",\"type\":\"%d\",\"time\":%ld}", payload, conn_status, timestamp);
+         snprintf(buf, 1024, "{\"clientid\":\"%s\",\"type\":\"%d\",\"time\":%ld}", (char*)payload, conn_status, timestamp);
         
          _mosquitto_log_printf(NULL, MOSQ_LOG_DEBUG, "[query_connection_status] msg:%s", buf);
          if(mqtt3_db_message_store(db, context->id, 0, topic, 0, strlen(buf), buf, 0, &conn_status_msg_stored, 0)) return ;
