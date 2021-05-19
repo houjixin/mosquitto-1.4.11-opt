@@ -89,8 +89,8 @@ enum mosq_opt_t {
 	MOSQ_OPT_PROTOCOL_VERSION = 1,
 };
 
-#define ONTICE_TYPE_ONLINE 1
-#define ONTICE_TYPE_OFFLINE 0
+#define NOTICE_TYPE_ONLINE 1
+#define NOTICE_TYPE_OFFLINE 0
 
 
 /* MQTT specification restricts client ids to a maximum of 23 characters */
